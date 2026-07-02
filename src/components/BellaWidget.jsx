@@ -36,8 +36,10 @@ const callLLM = async (messages) => {
 }
 
 const today = new Date()
-const todayStr = today.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-const currentTimeStr = today.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })
+const londonLocale = 'en-GB'
+const londonTZ = { timeZone: 'Europe/London' }
+const todayStr = today.toLocaleDateString(londonLocale, { ...londonTZ, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+const currentTimeStr = today.toLocaleTimeString(londonLocale, { ...londonTZ, hour: '2-digit', minute: '2-digit', hour12: true })
 
 const SYSTEM_PROMPT = `You are Bella, a warm friendly booking concierge for Luxe & Glow salon in Mayfair London.
 Today is ${todayStr} and the current time is ${currentTimeStr}. Use both to validate dates and times.
