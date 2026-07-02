@@ -3,10 +3,37 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, MessageCircle, Send, Heart } from 'lucide-react'
 
 /* ─── CONFIG — keys loaded from .env ────────────────────────────── */
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
-const GROQ_MODEL   = 'llama-3.3-70b-versatile'
-const GROQ_URL     = 'https://api.groq.com/openai/v1/chat/completions'
-const SHEETS_URL   = import.meta.env.VITE_SHEETS_URL || ''
+const GROQ_API_KEY   = import.meta.env.VITE_GROQ_API_KEY
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
+const GROQ_MODEL     = 'llama-3.3-70b-versatile'
+const OPENAI_MODEL   = 'gpt-4o-mini'
+const GROQ_URL       = 'https://api.groq.com/openai/v1/chat/completions'
+const OPENAI_URL     = 'https://api.openai.com/v1/chat/completions'
+const SHEETS_URL     = import.meta.env.VITE_SHEETS_URL || ''
+
+const callLLM = async (messages) => {
+  // Try Groq first
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
+      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.7, max_tokens: 500 }),
+    })
+    if (res.status === 429 || res.status === 503) throw new Error('Groq limit reached')
+    const data = await res.json()
+    if (data.error) throw new Error('Groq error')
+    return data.choices[0].message.content
+  } catch (_) {
+    // Fall back to OpenAI
+    const res = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.7, max_tokens: 500 }),
+    })
+    const data = await res.json()
+    return data.choices[0].message.content
+  }
+}
 
 const today = new Date()
 const todayStr = today.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -110,22 +137,7 @@ export default function BellaWidget() {
     const newHistory = [...history, { role: 'user', content: text }]
 
     try {
-      const res = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: GROQ_MODEL,
-          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...newHistory],
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
-      })
-
-      const data = await res.json()
-      const aiReply = data.choices[0].message.content
+      const aiReply = await callLLM([{ role: 'system', content: SYSTEM_PROMPT }, ...newHistory])
       let displayReply = aiReply
 
       // Strip SUMMARY tag from display
